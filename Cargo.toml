@@ -1,0 +1,15 @@
+[package]
+name = "mac_traffic_monitor"
+version = "0.1.0"
+edition = "2024"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
+[dependencies]
+sysinfo = { version = "0.30", default-features = false }
+tray-icon = "0.14"
+tao = "0.30"
+cocoa = "0.25"
+objc = "0.2"
+core-graphics = "0.23"

@@ -1,0 +1,23 @@
+use std::time::Duration;
+
+pub const SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
+pub const SMOOTHING_FACTOR: f64 = 0.35;
+pub const INITIAL_TITLE: &str = "↑:--KB/s\tC:--%\n↓:--KB/s\tM:--%";
+pub const STATUS_FONT_SIZE: f64 = 9.0;
+pub const STATUS_VIEW_WIDTH: f64 = 108.0;
+pub const STATUS_MIN_WIDTH: f64 = 60.0;
+pub const STATUS_VIEW_HEIGHT: f64 = 18.0;
+pub const STATUS_HORIZONTAL_PADDING: f64 = 3.5;
+pub const STATUS_COLUMN_GAP: f64 = 3.0;
+pub const STATUS_RIGHT_COLUMN_EXTRA: f64 = 5.0;
+pub const TOP_LABEL_Y: f64 = 7.0;
+pub const BOTTOM_LABEL_Y: f64 = -1.0;
+pub const LABEL_HEIGHT: f64 = 9.0;
+pub const MENU_ROW_WIDTH: f64 = 420.0;
+pub const MENU_ROW_HEIGHT: f64 = 18.0;
+pub const MENU_ROW_HORIZONTAL_PADDING: f64 = 6.0;
+pub const COPY_FEEDBACK_SUFFIX: &str = "  [已复制]";
+pub const DETAILS_REFRESH_INTERVAL: Duration = Duration::from_secs(10);
+pub const EXTERNAL_IP_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
+pub const LAUNCH_AGENT_FILE_NAME: &str = "com.mac_traffic_monitor.autostart.plist";
+pub const LAUNCH_AGENT_LABEL: &str = "com.mac_traffic_monitor.autostart";
