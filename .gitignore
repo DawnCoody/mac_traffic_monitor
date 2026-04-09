@@ -1,3 +1,4 @@
 /target
 /dist
+/assets/icons/*.iconset/
 .DS_Store
