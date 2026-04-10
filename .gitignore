@@ -2,3 +2,4 @@
 /dist
 /assets/icons/*.iconset/
 .DS_Store
+*.swp
