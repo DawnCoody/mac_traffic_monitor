@@ -12,6 +12,10 @@ BINARY_PATH="${PROJECT_ROOT}/target/release/${APP_NAME}"
 ICON_PATH="${PROJECT_ROOT}/assets/icons/rocket.icns"
 PLIST_PATH="${CONTENTS_DIR}/Info.plist"
 ZIP_PATH="${PROJECT_ROOT}/dist/${APP_NAME}-macos-app.zip"
+DMG_STAGING_DIR="${PROJECT_ROOT}/dist/dmg-staging"
+DMG_PATH="${PROJECT_ROOT}/dist/${APP_NAME}.dmg"
+VOLUME_NAME="mac_traffic_monitor"
+TMP_DMG_PATH="${PROJECT_ROOT}/dist/${APP_NAME}-temp.dmg"
 
 cargo build --release --manifest-path "${PROJECT_ROOT}/Cargo.toml"
 
@@ -55,8 +59,17 @@ cat > "${PLIST_PATH}" <<'EOF'
 </plist>
 EOF
 
-rm -f "${ZIP_PATH}"
+rm -f "${ZIP_PATH}" "${DMG_PATH}" "${TMP_DMG_PATH}"
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "${BUNDLE_DIR}" "${ZIP_PATH}"
+
+rm -rf "${DMG_STAGING_DIR}"
+mkdir -p "${DMG_STAGING_DIR}"
+cp -R "${BUNDLE_DIR}" "${DMG_STAGING_DIR}/${BUNDLE_NAME}"
+ln -s /Applications "${DMG_STAGING_DIR}/Applications"
+
+hdiutil create -volname "${VOLUME_NAME}" -srcfolder "${DMG_STAGING_DIR}" -ov -format UDZO "${DMG_PATH}"
+rm -rf "${DMG_STAGING_DIR}"
 
 printf 'Created app bundle: %s\n' "${BUNDLE_DIR}"
 printf 'Created release zip: %s\n' "${ZIP_PATH}"
+printf 'Created release dmg: %s\n' "${DMG_PATH}"
