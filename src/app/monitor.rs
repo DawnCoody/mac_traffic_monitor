@@ -20,7 +20,11 @@ use crate::app::{
     types::{InterfaceSelection, NetRates, NetSnapshot, SystemMetrics, UiState, UserEvent},
 };
 
-pub fn spawn_monitor_worker(proxy: EventLoopProxy<UserEvent>, force_refresh_ip: &'static AtomicBool) {
+pub fn spawn_monitor_worker(
+    proxy: EventLoopProxy<UserEvent>,
+    force_refresh_ip: &'static AtomicBool,
+    external_ip_refreshing: &'static AtomicBool,
+) {
     thread::spawn(move || {
         let started_at = Instant::now();
         let mut networks = Networks::new_with_refreshed_list();
@@ -89,6 +93,7 @@ pub fn spawn_monitor_worker(proxy: EventLoopProxy<UserEvent>, force_refresh_ip: 
                 details_refreshed_at = Instant::now();
                 external_ip_details = collect_external_ip_details();
                 external_ip_refreshed_at = Instant::now();
+                external_ip_refreshing.store(false, Ordering::SeqCst);
             }
 
             if details_refreshed_at.elapsed() >= DETAILS_REFRESH_INTERVAL {
@@ -114,6 +119,19 @@ pub fn spawn_monitor_worker(proxy: EventLoopProxy<UserEvent>, force_refresh_ip: 
             smoothed_rates = Some(display_rates);
             previous = Some(current_snapshot.clone());
 
+            let (external_ipv4_summary, external_ipv6_summary) =
+                if external_ip_refreshing.load(Ordering::SeqCst) {
+                    (
+                        "外网IP(v4): 刷新中...".to_string(),
+                        "外网IP(v6): 刷新中...".to_string(),
+                    )
+                } else {
+                    (
+                        format_external_ipv4_summary(&external_ip_details),
+                        format_external_ipv6_summary(&external_ip_details),
+                    )
+                };
+
             let state = UiState {
                 title: format_status_title(display_rates, metrics),
                 memory_summary: format_memory_summary(metrics),
@@ -127,8 +145,8 @@ pub fn spawn_monitor_worker(proxy: EventLoopProxy<UserEvent>, force_refresh_ip: 
                     &current_snapshot,
                 ),
                 uptime_summary: format_uptime_summary(started_at),
-                external_ipv4_summary: format_external_ipv4_summary(&external_ip_details),
-                external_ipv6_summary: format_external_ipv6_summary(&external_ip_details),
+                external_ipv4_summary,
+                external_ipv6_summary,
             };
 
             if proxy.send_event(UserEvent::StatsUpdated(state)).is_err() {

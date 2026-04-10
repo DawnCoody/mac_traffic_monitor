@@ -18,10 +18,15 @@ use crate::app::{
 };
 
 static FORCE_REFRESH_IP: AtomicBool = AtomicBool::new(false);
+static EXTERNAL_IP_REFRESHING: AtomicBool = AtomicBool::new(false);
 static LAST_COPIED_ITEM: Mutex<Option<usize>> = Mutex::new(None);
 
 pub fn force_refresh_ip_flag() -> &'static AtomicBool {
     &FORCE_REFRESH_IP
+}
+
+pub fn external_ip_refreshing_flag() -> &'static AtomicBool {
+    &EXTERNAL_IP_REFRESHING
 }
 
 pub fn create_menu_action_target() -> id {
@@ -48,12 +53,20 @@ fn menu_action_target_class() -> &'static Class {
             refresh_ip_from_gesture as extern "C" fn(&Object, Sel, id),
         );
         decl.add_method(
+            sel!(refreshExternalIpFromGesture:),
+            refresh_external_ip_from_gesture as extern "C" fn(&Object, Sel, id),
+        );
+        decl.add_method(
             sel!(toggleLaunchAtLogin:),
             toggle_launch_at_login as extern "C" fn(&Object, Sel, id),
         );
         decl.add_method(
             sel!(menuDidClose:),
             menu_did_close as extern "C" fn(&Object, Sel, id),
+        );
+        decl.add_method(
+            sel!(noop:),
+            noop as extern "C" fn(&Object, Sel, id),
         );
         CLASS = decl.register();
     });
@@ -78,6 +91,15 @@ extern "C" fn refresh_ip_from_gesture(_: &Object, _: Sel, sender: id) {
     FORCE_REFRESH_IP.store(true, Ordering::SeqCst);
 }
 
+extern "C" fn refresh_external_ip_from_gesture(_: &Object, _: Sel, sender: id) {
+    let Some(item) = menu_item_from_gesture_sender(sender) else {
+        return;
+    };
+    set_external_ip_refreshing_title(item);
+    EXTERNAL_IP_REFRESHING.store(true, Ordering::SeqCst);
+    FORCE_REFRESH_IP.store(true, Ordering::SeqCst);
+}
+
 extern "C" fn toggle_launch_at_login(_: &Object, _: Sel, sender: id) {
     let target_enabled = !menu::menu_item_is_checked(sender);
     if let Err(err) = set_launch_at_login(target_enabled) {
@@ -89,6 +111,8 @@ extern "C" fn toggle_launch_at_login(_: &Object, _: Sel, sender: id) {
 extern "C" fn menu_did_close(_: &Object, _: Sel, _: id) {
     clear_last_copied_feedback();
 }
+
+extern "C" fn noop(_: &Object, _: Sel, _: id) {}
 
 fn menu_item_from_gesture_sender(sender: id) -> Option<id> {
     if sender == nil {
@@ -154,10 +178,30 @@ fn copy_item_value_to_pasteboard(item: id) {
     menu::set_menu_item_title(item, &with_copy_feedback_suffix(clean_text));
 }
 
+fn set_external_ip_refreshing_title(item: id) {
+    let title: id = unsafe { msg_send![item, title] };
+    let Some(full_text) = menu::nsstring_to_string(title) else {
+        return;
+    };
+    let clean_text = strip_copy_feedback_suffix(&full_text);
+    let refreshing_title = if let Some((label, _)) = clean_text.split_once(':') {
+        format!("{}: 刷新中...", label.trim())
+    } else if let Some((label, _)) = clean_text.split_once('：') {
+        format!("{}：刷新中...", label.trim())
+    } else {
+        "刷新中...".to_string()
+    };
+    menu::set_menu_item_title(item, &refreshing_title);
+}
+
 fn extract_second_column(text: &str) -> &str {
-    text.split_once(':')
-        .map(|(_, value)| value.trim())
-        .unwrap_or(text)
+    if let Some((_, value)) = text.split_once(':') {
+        return value.trim();
+    }
+    if let Some((_, value)) = text.split_once('：') {
+        return value.trim();
+    }
+    text
 }
 
 fn with_copy_feedback_suffix(title: &str) -> String {

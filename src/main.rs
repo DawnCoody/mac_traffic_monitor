@@ -1,8 +1,9 @@
-use cocoa::appkit::{NSApp, NSApplication};
 use tao::{
     event::{Event, StartCause},
     event_loop::{ControlFlow, EventLoopBuilder},
 };
+#[cfg(target_os = "macos")]
+use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
 
 mod app;
 
@@ -10,20 +11,21 @@ use app::icon::try_set_application_icon;
 use app::monitor::spawn_monitor_worker;
 use app::types::UserEvent;
 use app::ui::{
-    actions::{create_menu_action_target, force_refresh_ip_flag},
+    actions::{create_menu_action_target, external_ip_refreshing_flag, force_refresh_ip_flag},
     menu::{build_native_menu, set_menu_item_title},
     status_item::NativeStatusItem,
 };
 
 
 fn main() {
-    unsafe {
-        let app = NSApp();
-        app.setActivationPolicy_(cocoa::appkit::NSApplicationActivationPolicyRegular);
-    }
     try_set_application_icon();
 
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let mut event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    #[cfg(target_os = "macos")]
+    {
+        event_loop.set_activation_policy(ActivationPolicy::Accessory);
+        event_loop.set_activate_ignoring_other_apps(true);
+    }
     let proxy = event_loop.create_proxy();
 
     let status_item = NativeStatusItem::new();
@@ -31,7 +33,11 @@ fn main() {
     let (menu, menu_items, _quit_item) = build_native_menu(menu_action_target);
     status_item.set_menu(menu);
 
-    spawn_monitor_worker(proxy, force_refresh_ip_flag());
+    spawn_monitor_worker(
+        proxy,
+        force_refresh_ip_flag(),
+        external_ip_refreshing_flag(),
+    );
 
     event_loop.run(move |event, _, control_flow| {
         let _keep_action_target_alive = &menu_action_target;
@@ -57,5 +63,3 @@ fn main() {
         }
     });
 }
-
-

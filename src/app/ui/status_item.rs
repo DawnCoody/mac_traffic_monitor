@@ -20,7 +20,7 @@ impl NativeStatusItem {
     pub fn new() -> Self {
         unsafe {
             let app = NSApp();
-            app.setActivationPolicy_(cocoa::appkit::NSApplicationActivationPolicyRegular);
+            app.setActivationPolicy_(cocoa::appkit::NSApplicationActivationPolicyAccessory);
 
             let status_item =
                 NSStatusBar::systemStatusBar(nil).statusItemWithLength_(NSVariableStatusItemLength);

@@ -57,7 +57,9 @@ fn tagged_interface_value(interface: &str, value: &str, include_interface: bool)
     }
 }
 
-fn query_interface_address_details(interface: &str) -> (Option<String>, Option<String>, Option<String>) {
+fn query_interface_address_details(
+    interface: &str,
+) -> (Option<String>, Option<String>, Option<String>) {
     let output = match Command::new("ifconfig").arg(interface).output() {
         Ok(output) => output,
         Err(_) => return (None, None, None),
@@ -136,11 +138,32 @@ fn query_default_gateway() -> Option<String> {
         return None;
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    for line in stdout.lines() {
+    parse_default_gateway_from_route_output(&output.stdout)
+}
+
+fn parse_default_gateway_from_route_output(stdout: &[u8]) -> Option<String> {
+    let text = String::from_utf8_lossy(stdout);
+    for line in text.lines() {
         let trimmed = line.trim();
-        if let Some(value) = trimmed.strip_prefix("gateway:") {
-            return Some(value.trim().to_string());
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if let Some((key, value)) = trimmed.split_once(':')
+            && key.trim().eq_ignore_ascii_case("gateway")
+        {
+            let gateway = value.trim();
+            if !gateway.is_empty() {
+                return Some(gateway.to_string());
+            }
+            continue;
+        }
+
+        let mut fields = trimmed.split_whitespace();
+        let first = fields.next();
+        let second = fields.next();
+        if first.is_some_and(|field| field.eq_ignore_ascii_case("gateway")) && second.is_some() {
+            return second.map(str::to_string);
         }
     }
 
@@ -160,7 +183,11 @@ enum IpFamily {
     V6,
 }
 
-fn query_external_ip(protocol_flag: &str, endpoint: &str, expected_family: IpFamily) -> Option<String> {
+fn query_external_ip(
+    protocol_flag: &str,
+    endpoint: &str,
+    expected_family: IpFamily,
+) -> Option<String> {
     let output = Command::new("curl")
         .args([protocol_flag, "-fsS", "--max-time", "4", endpoint])
         .output()
@@ -180,7 +207,10 @@ fn parse_external_ip_response(stdout: &[u8], expected_family: IpFamily) -> Optio
     }
 
     let ip = value.parse::<IpAddr>().ok()?;
-    let family_matches = matches!((expected_family, ip), (IpFamily::V4, IpAddr::V4(_)) | (IpFamily::V6, IpAddr::V6(_)));
+    let family_matches = matches!(
+        (expected_family, ip),
+        (IpFamily::V4, IpAddr::V4(_)) | (IpFamily::V6, IpAddr::V6(_))
+    );
     family_matches.then(|| ip.to_string())
 }
 
@@ -207,5 +237,38 @@ mod tests {
             parse_external_ip_response(b"2001:db8::1\n", IpFamily::V6),
             Some("2001:db8::1".to_string())
         );
+    }
+
+    #[test]
+    fn parse_default_gateway_from_route_output_standard_format() {
+        let output = br#"
+route to: default
+destination: default
+   mask: default
+gateway: 192.168.10.1
+interface: en0
+"#;
+
+        assert_eq!(
+            parse_default_gateway_from_route_output(output),
+            Some("192.168.10.1".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_default_gateway_from_route_output_is_case_insensitive() {
+        let output = b"Gateway:   10.0.0.1\n";
+
+        assert_eq!(
+            parse_default_gateway_from_route_output(output),
+            Some("10.0.0.1".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_default_gateway_from_route_output_returns_none_when_missing() {
+        let output = b"destination: default\ninterface: en0\n";
+
+        assert_eq!(parse_default_gateway_from_route_output(output), None);
     }
 }
