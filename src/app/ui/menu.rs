@@ -361,7 +361,10 @@ pub fn menu_item_is_checked(item: id) -> bool {
 }
 
 pub fn nsstring(value: &str) -> id {
-    unsafe { NSString::alloc(nil).init_str(value) }
+    unsafe {
+        let string = NSString::alloc(nil).init_str(value);
+        msg_send![string, autorelease]
+    }
 }
 
 pub fn nsstring_to_string(value: id) -> Option<String> {

@@ -20,6 +20,7 @@ pub fn try_set_application_icon() {
         let image: id = msg_send![NSImage::alloc(nil), initWithData: data];
         if image != nil {
             let _: () = msg_send![NSApp(), setApplicationIconImage: image];
+            let _: () = msg_send![image, release];
         }
     }
 }
